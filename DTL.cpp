@@ -32,16 +32,27 @@ using namespace std;
 // 15 = FibPerDim
 // 16 = classification
 
-// ensure that the same attribute tested again later in the tree uses a different threshold
-vector< vector<float> > threshold_tracker(16);
-
 // tree structure
 struct TreeNode {
+	TreeNode * parent;
 	float attribute;
 	float threshold;
 	TreeNode * left;
 	TreeNode * right;
 };
+
+// if thresholds are the same, ensure thresholds are different from root to leaves
+bool diff_threshold(TreeNode * T, float threshold, float attr) {
+	if (T->parent == NULL) {
+		return true;
+	}
+	else if (T->parent->threshold == threshold && T->parent->attribute == attr) {
+		return false;
+	}
+	else {
+		diff_threshold(T->parent, threshold, attr);
+	}
+}
 
 // checks if examples are from the same class
 bool same_class(vector < vector<float> > examples) {
@@ -101,7 +112,7 @@ float IG(vector< vector<float> > examples, int attribute, float threshold, bool 
 }	
 
 // choose attribute using information gain metric
-vector<float> choose_attribute(vector<float> attributes, vector< vector<float> > examples) {
+vector<float> choose_attribute(vector<float> attributes, vector< vector<float> > examples, TreeNode * T) {
 	// 2 by num_attributes matrix vector that contains the max info gain for each attribute in row 1 and the associated threshold in row 2 
 	vector< vector<float> > best_options(2, vector<float>(examples[0].size()-1));
 	float attributes_size = attributes.size();
@@ -118,8 +129,7 @@ vector<float> choose_attribute(vector<float> attributes, vector< vector<float> >
 		for (int k = 0; k < info_gain.size()-1; k++) {
 			float analyze_threshold = (info_gain[k] + info_gain[k+1])/2;
 			float analyze = IG_value - IG(examples,i,analyze_threshold,true);
-			helper = analyze_threshold;
-			if (analyze > max && find(threshold_tracker[i].begin(),threshold_tracker[i].end(),analyze_threshold) == threshold_tracker[i].end()) { 
+			if (analyze > max && diff_threshold(T, analyze_threshold, i)) { 
 					max = analyze;
 					max_threshold = analyze_threshold;
 			}
@@ -131,7 +141,6 @@ vector<float> choose_attribute(vector<float> attributes, vector< vector<float> >
 	float location_max = distance(best_options[0].begin(),max_element(best_options[0].begin(),best_options[0].end())); // finding location of info max
 	result.push_back(location_max); // attribute with highest threshold
 	result.push_back(best_options[1][location_max]); // threshold value
-	threshold_tracker[location_max].push_back(best_options[1][location_max]); // keep track of threshold used so far
 	return result;
 }
 
@@ -174,7 +183,7 @@ void DTL(vector< vector<float> > examples, vector<float> attributes, vector<floa
 		return;
 	}
 	else {
-		vector< float > best = choose_attribute(attributes, examples);
+		vector< float > best = choose_attribute(attributes, examples, DT);
 		DT->attribute = best[0];
 		DT->threshold = best[1];
 		// splitting examples based on threhsold value of chosen attribute
@@ -217,6 +226,8 @@ void DTL(vector< vector<float> > examples, vector<float> attributes, vector<floa
 		TreeNode * DT_Right = new TreeNode;
 		DT->left = DT_Left;
 		DT->right = DT_Right;
+		DT_Left->parent = DT;
+		DT_Right->parent = DT;
 		// recursively build tree until decision tree is complete
 		DTL(examples_below, attributes, mode_above, DT_Left);
 		DTL(examples_above, attributes, mode_below, DT_Right);
@@ -271,7 +282,7 @@ int main () {
 		} // if example has colic, assign a value of 0
 		Training_Set.push_back(row);
 	}
-	for (int i = 0; i < 17; i++) { attributes.push_back(i);	} // create a vector with list of attributes
+	for (int i = 0; i < Training_Set[0].size(); i++) { attributes.push_back(i);	} // create a vector with list of attributes
 	vector<float> mode;
 	// finding mode(examples)
 	for (int c = 0; c < Training_Set[0].size(); c++) {
@@ -280,6 +291,7 @@ int main () {
 		mode.push_back(findMode(temp));
 	}
 	TreeNode * DT = new TreeNode; // root of decision tree
+	DT->parent = NULL;
 	cout << "Pre Order Traversal of Decision Tree" << endl;
 	DTL(Training_Set,attributes,mode,DT);
 	if (flag == 1) {
