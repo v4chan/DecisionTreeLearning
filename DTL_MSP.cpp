@@ -371,9 +371,9 @@ int main () {
 	// determine classification of testing set
 	int positive = 0;
 	int negative = 0;
-	for (int i = 0; i < Training_Set.size(); i++) {
+	for (int i = 0; i < Testing_Set.size(); i++) {
 		vector<float> instance;
-		instance = Training_Set[i];
+		instance = Testing_Set[i];
 		//cout << trace_tree(DT, instance) << endl;
 		if (trace_tree(DT, instance)) { 
 			positive++; 
